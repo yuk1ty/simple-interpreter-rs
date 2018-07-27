@@ -32,6 +32,7 @@ pub enum Token {
     Number(i32),
     Add(Box<Token>, Box<Token>),
     Multiply(Box<Token>, Box<Token>),
+    BoolValue(bool),
 }
 
 impl fmt::Display for Token {
@@ -42,6 +43,7 @@ impl fmt::Display for Token {
             &Number(v) => write!(f, "{}", v),
             &Add(ref blv, ref brv) => write!(f, "{} + {}", blv.to_string(), brv.to_string()),
             &Multiply(ref blv, ref brv) => write!(f, "{} * {}", blv.to_string(), brv.to_string()),
+            &BoolValue(ref b) => write!(f, "{}", b),
         }
     }
 }
@@ -53,6 +55,7 @@ impl Token {
             Number(_) => false,
             Add(_, _) => true,
             Multiply(_, _) => true,
+            BoolValue(_) => false,
         }
     }
 
@@ -86,6 +89,7 @@ impl Token {
                 },
                 _ => panic!("Unexpected error in Multiply!"),
             },
+            &BoolValue(_) => panic!("BoolValue token couldn't reduce!"),
         }
     }
 }
@@ -103,14 +107,23 @@ fn main() {
 #[test]
 fn test_to_string() {
     use Token::*;
-    let actual = Add(
-        Box::new(Multiply(Box::new(Number(1)), Box::new(Number(2)))),
-        Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
-    );
+    {
+        let actual = Add(
+            Box::new(Multiply(Box::new(Number(1)), Box::new(Number(2)))),
+            Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
+        );
 
-    let expected = "1 * 2 + 3 * 4";
+        let expected = "1 * 2 + 3 * 4";
 
-    assert_eq!(actual.to_string(), expected);
+        assert_eq!(actual.to_string(), expected);
+    }
+
+    {
+        let bool_actual = BoolValue(true);
+        let bool_expected = "true";
+
+        assert_eq!(bool_actual.to_string(), bool_expected);
+    }
 }
 
 #[test]
@@ -119,10 +132,12 @@ fn test_is_reducible() {
     let number_token = Number(1).is_reducible();
     let add_token = Add(Box::new(Number(1)), Box::new(Number(2))).is_reducible();
     let multiply_token = Multiply(Box::new(Number(1)), Box::new(Number(2))).is_reducible();
+    let bool_token = BoolValue(true).is_reducible();
 
     assert_eq!(number_token, false);
     assert_eq!(add_token, true);
     assert_eq!(multiply_token, true);
+    assert_eq!(bool_token, false);
 }
 
 #[test]
