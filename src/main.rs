@@ -30,9 +30,10 @@ impl Machine {
 #[derive(Clone)]
 pub enum Token {
     Number(i32),
+    BoolValue(bool),
     Add(Box<Token>, Box<Token>),
     Multiply(Box<Token>, Box<Token>),
-    BoolValue(bool),
+    LessThan(Box<Token>, Box<Token>),
 }
 
 impl fmt::Display for Token {
@@ -41,9 +42,10 @@ impl fmt::Display for Token {
         // TODO clean up
         match self {
             &Number(v) => write!(f, "{}", v),
+            &BoolValue(ref b) => write!(f, "{}", b),
             &Add(ref blv, ref brv) => write!(f, "{} + {}", blv.to_string(), brv.to_string()),
             &Multiply(ref blv, ref brv) => write!(f, "{} * {}", blv.to_string(), brv.to_string()),
-            &BoolValue(ref b) => write!(f, "{}", b),
+            &LessThan(ref blv, ref brv) => write!(f, "{} < {}", blv.to_string(), brv.to_string()),
         }
     }
 }
@@ -53,9 +55,10 @@ impl Token {
         use Token::*;
         match *self {
             Number(_) => false,
+            BoolValue(_) => false,
             Add(_, _) => true,
             Multiply(_, _) => true,
-            BoolValue(_) => false,
+            LessThan(_, _) => true,
         }
     }
 
@@ -63,6 +66,7 @@ impl Token {
         use Token::*;
         match self {
             &Number(_) => panic!("Number token couldn't reduce!"),
+            &BoolValue(_) => panic!("BoolValue token couldn't reduce!"),
             &Add(ref blv, ref brv) if blv.is_reducible() => {
                 Add(Box::new(blv.reduce()), brv.clone())
             }
@@ -89,7 +93,19 @@ impl Token {
                 },
                 _ => panic!("Unexpected error in Multiply!"),
             },
-            &BoolValue(_) => panic!("BoolValue token couldn't reduce!"),
+            &LessThan(ref blv, ref brv) if blv.is_reducible() => {
+                LessThan(Box::new(blv.reduce()), brv.clone())
+            }
+            &LessThan(ref blv, ref brv) if brv.is_reducible() => {
+                LessThan(blv.clone(), Box::new(brv.reduce()))
+            }
+            &LessThan(ref blv, ref brv) => match **blv {
+                Number(left_value) => match **brv {
+                    Number(right_value) => BoolValue(left_value < right_value),
+                    _ => panic!("Unexpected error in LessThan!"),
+                },
+                _ => panic!("Unexpected error in LessThan!"),
+            },
         }
     }
 }
@@ -143,18 +159,33 @@ fn test_is_reducible() {
 #[test]
 fn test_reduce() {
     use Token::*;
-    let expression = Add(
-        Box::new(Multiply(Box::new(Number(1)), Box::new(Number(2)))),
-        Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
-    );
+    {
+        let expression = Add(
+            Box::new(Multiply(Box::new(Number(1)), Box::new(Number(2)))),
+            Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
+        );
 
-    let reduced = expression.reduce();
-    let reduced2 = reduced.reduce();
-    let reduced3 = reduced2.reduce();
+        let reduced = expression.reduce();
+        let reduced2 = reduced.reduce();
+        let reduced3 = reduced2.reduce();
 
-    assert_eq!(reduced.to_string(), "2 + 3 * 4");
-    assert_eq!(reduced2.to_string(), "2 + 12");
-    assert_eq!(reduced3.to_string(), "14");
+        assert_eq!(reduced.to_string(), "2 + 3 * 4");
+        assert_eq!(reduced2.to_string(), "2 + 12");
+        assert_eq!(reduced3.to_string(), "14");
+    }
+
+    {
+        let expression = LessThan(
+            Box::new(Number(5)),
+            Box::new(Add(Box::new(Number(2)), Box::new(Number(2)))),
+        );
+
+        let reduced = expression.reduce();
+        let reduced2 = reduced.reduce();
+
+        assert_eq!(reduced.to_string(), "5 < 4");
+        assert_eq!(reduced2.to_string(), "false");
+    }
 }
 
 #[test]
