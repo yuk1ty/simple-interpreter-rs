@@ -1,4 +1,31 @@
 use std::fmt;
+use std::cell::RefCell;
+
+pub struct Machine {
+    pub expression: RefCell<Token>,
+}
+
+impl Machine {
+    pub fn new(expression: Token) -> Self {
+        Machine {
+            expression: RefCell::new(expression),
+        }
+    }
+
+    pub fn run(&self) {
+        while self.expression.borrow().is_reducible() {
+            println!("{}", self.expression.borrow());
+            self.step();
+        }
+
+        println!("{}", self.expression.borrow());
+    }
+
+    fn step(&self) {
+        self.expression
+            .replace(self.expression.clone().into_inner().reduce());
+    }
+}
 
 #[derive(Clone)]
 pub enum Token {
@@ -31,25 +58,29 @@ impl Token {
 
     pub fn reduce(&self) -> Token {
         use Token::*;
-        match self.clone() {
-            Number(_) => panic!("Number token couldn't reduce!"),
-            Add(ref blv, ref brv) if blv.is_reducible() => Add(Box::new(blv.reduce()), brv.clone()),
-            Add(ref blv, ref brv) if brv.is_reducible() => Add(blv.clone(), Box::new(brv.reduce())),
-            Add(blv, brv) => match *blv {
-                Number(left_value) => match *brv {
+        match self {
+            &Number(_) => panic!("Number token couldn't reduce!"),
+            &Add(ref blv, ref brv) if blv.is_reducible() => {
+                Add(Box::new(blv.reduce()), brv.clone())
+            }
+            &Add(ref blv, ref brv) if brv.is_reducible() => {
+                Add(blv.clone(), Box::new(brv.reduce()))
+            }
+            &Add(ref blv, ref brv) => match **blv {
+                Number(left_value) => match **brv {
                     Number(right_value) => Number(left_value + right_value),
                     _ => panic!("Unexpected error in Add!"),
                 },
                 _ => panic!("Unexpected error in Add!"),
             },
-            Multiply(ref blv, ref brv) if blv.is_reducible() => {
+            &Multiply(ref blv, ref brv) if blv.is_reducible() => {
                 Multiply(Box::new(blv.reduce()), brv.clone())
             }
-            Multiply(ref blv, ref brv) if brv.is_reducible() => {
+            &Multiply(ref blv, ref brv) if brv.is_reducible() => {
                 Multiply(blv.clone(), Box::new(brv.reduce()))
             }
-            Multiply(blv, brv) => match *blv {
-                Number(left_value) => match *brv {
+            &Multiply(ref blv, ref brv) => match **blv {
+                Number(left_value) => match **brv {
                     Number(right_value) => Number(left_value * right_value),
                     _ => panic!("Unexpected error in Multiply!"),
                 },
@@ -65,8 +96,8 @@ fn main() {
         Box::new(Multiply(Box::new(Number(1)), Box::new(Number(2)))),
         Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
     );
-    println!("{}", actual);
-    println!("Hello, world!");
+
+    Machine::new(actual).run();
 }
 
 #[test]
@@ -109,4 +140,17 @@ fn test_reduce() {
     assert_eq!(reduced.to_string(), "2 + 3 * 4");
     assert_eq!(reduced2.to_string(), "2 + 12");
     assert_eq!(reduced3.to_string(), "14");
+}
+
+#[test]
+fn test_vm() {
+    use Token::*;
+    let expression = Add(
+        Box::new(Multiply(Box::new(Number(1)), Box::new(Number(2)))),
+        Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
+    );
+
+    let vm = Machine::new(expression).run();
+
+    assert_eq!(vm, ());
 }
