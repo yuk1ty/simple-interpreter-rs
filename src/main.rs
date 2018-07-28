@@ -5,19 +5,19 @@ use std::collections::HashMap;
 #[allow(dead_code)]
 pub struct Machine {
     expression: RefCell<Token>,
-    environment: RefCell<HashMap<String, Token>>,
+    environment: HashMap<String, Token>,
 }
 
 impl Machine {
     pub fn new(expression: Token) -> Self {
         Machine {
             expression: RefCell::new(expression),
-            environment: RefCell::new(HashMap::new()),
+            environment: HashMap::new(),
         }
     }
 
     pub fn run(&self) {
-        let environment: RefCell<HashMap<String, Token>> = RefCell::new(HashMap::new());
+        let environment = HashMap::new();
 
         while self.expression.borrow().is_reducible() {
             println!("{}", self.expression.borrow());
@@ -27,7 +27,7 @@ impl Machine {
         println!("{}", self.expression.borrow());
     }
 
-    fn step(&self, environment: &RefCell<HashMap<String, Token>>) {
+    fn step(&self, environment: &HashMap<String, Token>) {
         self.expression
             .replace(self.expression.clone().into_inner().reduce(environment));
     }
@@ -71,15 +71,12 @@ impl Token {
         }
     }
 
-    pub fn reduce(&self, env: &RefCell<HashMap<String, Token>>) -> Token {
+    pub fn reduce(&self, env: &HashMap<String, Token>) -> Token {
         use Token::*;
         match self {
             &Number(_) => panic!("Number token couldn't reduce!"),
             &BoolValue(_) => panic!("BoolValue token couldn't reduce!"),
-            &Var(ref name) => env.borrow()
-                .get(name)
-                .expect("Variable couldn't get!")
-                .clone(),
+            &Var(ref name) => env.get(name).expect("Variable couldn't get!").clone(),
             &Add(ref blv, ref brv) if blv.is_reducible() => {
                 Add(Box::new(blv.reduce(env)), brv.clone())
             }
@@ -178,7 +175,7 @@ fn test_reduce() {
             Box::new(Multiply(Box::new(Number(3)), Box::new(Number(4)))),
         );
 
-        let _env: RefCell<HashMap<String, Token>> = RefCell::new(HashMap::new());
+        let _env = HashMap::new();
 
         let reduced = expression.reduce(&_env);
         let reduced2 = reduced.reduce(&_env);
@@ -195,7 +192,7 @@ fn test_reduce() {
             Box::new(Add(Box::new(Number(2)), Box::new(Number(2)))),
         );
 
-        let _env: RefCell<HashMap<String, Token>> = RefCell::new(HashMap::new());
+        let _env = HashMap::new();
 
         let reduced = expression.reduce(&_env);
         let reduced2 = reduced.reduce(&_env);
@@ -210,9 +207,9 @@ fn test_reduce() {
             Box::new(Var("y".to_string())),
         );
 
-        let env = RefCell::new(HashMap::new());
-        env.borrow_mut().insert("x".to_string(), Number(3));
-        env.borrow_mut().insert("y".to_string(), Number(4));
+        let mut env = HashMap::new();
+        env.insert("x".to_string(), Number(3));
+        env.insert("y".to_string(), Number(4));
 
         let reduced = expression.reduce(&env);
         let reduced2 = reduced.reduce(&env);
